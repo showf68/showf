@@ -1,6 +1,11 @@
 {
     "name": "showf68/showf",
     "description": "mes fonctions",
+    "autoload": {
+        "psr-0": {
+            "AGIshowf": "src/"
+        }
+    },
     "require": {
         "php": ">=5.3.0"
     }
