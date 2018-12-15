@@ -1,6 +1,7 @@
 {
     "name": "showf68/showf",
     "description": "mes fonctions",
+    "version": "1.0.4",
     "autoload": {
         "psr-0": {
             "AGIshowf": "src/"
