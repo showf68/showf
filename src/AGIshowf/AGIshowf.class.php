@@ -1,6 +1,6 @@
 <?php
 
-namespace showf68\showf;
+namespace AGIshowf;
 
 class AGIshowf extends \AGI  {
     public function sayYemot($say)
