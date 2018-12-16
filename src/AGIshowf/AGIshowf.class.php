@@ -11,21 +11,39 @@ class AGIshowf extends \AGI  {
         $this -> soundsFolder = $folder;
     }
 
-    public function sayYemot($say)
+    public function say($say, $max_digits = 1)
     {
+        $dtmf_allowed = '0123456789*#';
         foreach (explode('.', $say) AS $s) {
             $mode = substr($s, 0, 1);
             $data = substr($s, 2);
             switch ($mode) {
-                case 't': $this -> stream_file($this -> bingTTS($data)); break;
-                case 'f':
-                    if($this -> soundsFolder)
-                        $this -> stream_file('user/'. $this -> soundsFolder .'/'. $data);
-                    else
-                        $this -> stream_file('user/'. $data);
+                case 't':
+                    $digit = $this -> stream_file($this -> bingTTS($data), $dtmf_allowed)['result'];
                     break;
-                case 'd': $this -> say_digits($data); break;
-                case 'n': $this -> say_number($data); break;
+                case 'f':
+                    // if($this -> soundsFolder)
+                    $digit = $this -> stream_file('user/'. $this -> soundsFolder .'/'. $data, $dtmf_allowed)['result'];
+                    // else
+                    //    $digit = $this -> stream_file('user/'. $data, $dtmf_allowed)['result'];
+                    break;
+                case 'd':
+                    $digit = $this -> say_digits($data)['result'];
+                    break;
+                case 'n':
+                    $digit = $this -> say_number($data)['result'];
+                    break;
+            }
+            if($digit) {
+                $dtmf = chr($digit);
+                if($dtmf == '#') return '';
+                if($max_digits == 1)  return $dtmf;
+                for($i = 1; $i < $max_digits; $i++){
+                    $digit = $this -> wait_for_digit()['result'];
+                    if(chr($digit) == '#') return $dtmf;
+                    $dtmf .= chr($digit);
+                }
+                return $dtmf;
             }
         }
     }
@@ -85,6 +103,11 @@ class AGIshowf extends \AGI  {
     private function bingTTS($text)
     {
         $directory = '/usr/share/asterisk/sounds/tts/';
+
+        //$result = SelectSQL('#tts', compact('text'));
+        //if($result)            return $result['filename'];
+        //$filename = $directory . uniqid('bing_');
+
         $filename = $directory.'bing_'.hash('md5', $text);
         if(file_exists($filename.'.sln'))   return $filename;
 
@@ -94,9 +117,14 @@ class AGIshowf extends \AGI  {
             $access_token = $this -> bingGetToken();
 
         $result = $this -> bingGetAnswer($text, $access_token);
+        $size = strlen($result);
+        if($size < 80)            return 'beep';
         file_put_contents("$filename.wav", $result);
         exec("/usr/bin/sox $filename.wav -t raw -r 8000 -e signed-integer -c 1 $filename.sln");
         unlink("$filename.wav");
+        //$characters = strlen($text);
+        //InsertSQL('#tts', compact('text', 'filename', 'characters', 'size'));
+
         return $filename;
     }
 }
