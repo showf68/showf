@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * by @showf
+ * https://github.com/showf68/showf/blob/master/src/AGIshowf/AGIshowf.class.php
+ */
+
 namespace AGIshowf;
 
 class AGIshowf extends \AGI  {
@@ -34,7 +39,7 @@ class AGIshowf extends \AGI  {
                     $digit = $this -> say_number($data)['result'];
                     break;
             }
-            if($digit) {
+            if($max_digits AND $digit) {
                 $dtmf = chr($digit);
                 if($dtmf == '#') return '';
                 if($max_digits == 1)  return $dtmf;
@@ -65,7 +70,8 @@ class AGIshowf extends \AGI  {
         return $access_token;
     }
 
-    private function bingGetAnswer($text, $access_token) {
+    private function bingGetAnswer($text, $access_token)
+    {
         $doc = new \DOMDocument();
         $root = $doc->createElement("speak");
         $root->setAttribute("version", "1.0");
@@ -81,8 +87,7 @@ class AGIshowf extends \AGI  {
         $doc->appendChild($root);
         $data = $doc->saveXML();
 
-        //$format = 'raw-8khz-8bit-mono-mulaw';
-        $format = 'riff-24khz-16bit-mono-pcm';
+        $format = 'raw-8khz-8bit-mono-mulaw';
         $options = array(
             'http' => array(
                 'header' => "Content-type: application/ssml+xml\r\n" .
@@ -103,13 +108,8 @@ class AGIshowf extends \AGI  {
     private function bingTTS($text)
     {
         $directory = '/usr/share/asterisk/sounds/tts/';
-
-        //$result = SelectSQL('#tts', compact('text'));
-        //if($result)            return $result['filename'];
-        //$filename = $directory . uniqid('bing_');
-
         $filename = $directory.'bing_'.hash('md5', $text);
-        if(file_exists($filename.'.sln'))   return $filename;
+        if(file_exists($filename.'.ulaw'))   return $filename;
 
         if(file_exists($this -> bingTokenFile) AND (time() - filectime($this -> bingTokenFile) < 600))
             $access_token = file_get_contents($this -> bingTokenFile);
@@ -119,11 +119,7 @@ class AGIshowf extends \AGI  {
         $result = $this -> bingGetAnswer($text, $access_token);
         $size = strlen($result);
         if($size < 80)            return 'beep';
-        file_put_contents("$filename.wav", $result);
-        exec("/usr/bin/sox $filename.wav -t raw -r 8000 -e signed-integer -c 1 $filename.sln");
-        unlink("$filename.wav");
-        //$characters = strlen($text);
-        //InsertSQL('#tts', compact('text', 'filename', 'characters', 'size'));
+        file_put_contents("$filename.ulaw", $result);
 
         return $filename;
     }
