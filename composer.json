@@ -4,13 +4,10 @@
   "description": "showf functions",
   "keywords": ["showf"],
   "minimum-stability": "stable",
-//  "minimum-stability": "dev",
   "license": "Apache-2.0",
   "authors": [{"name": "showf", "role": "Developer"}],
   "require": {"php": ">=5.3.0"},
   "autoload": {
     "files": ["loader.php"]
-//    "psr-4": {"showf\\": ""},
-//    "psr-0": {"showf": ""}
   }
 }
