@@ -24,12 +24,3 @@ function formatNumber($number) {
         $number = '00972' . substr($number, 1);
     return $number;
 }
-
-
-function sox($original, $converted, $delete_original = 0)
-{
-    $answer = ("sox $original -t raw -r 8000 -e signed-integer -c 1 $converted");
-    if ($delete_original)
-        unlink($delete_original);
-    return $answer;
-}
