@@ -7,7 +7,7 @@ function PrepareSQL($tabley, $usery, $passy, $servery = 'localhost', $porty = 33
 	$server = $servery;
 	$port = $porty;
 }
- 
+ //a
 function ConnectSQL($table, $user, $pass, $server = 'localhost', $port = 3306) {
 	global $bdd, $sql_error;	
 	
