@@ -9,7 +9,6 @@
   "require": {
     "php": ">=5.3.0",
     "mailgun/mailgun-php": "^2.6",
-    "nkolosov/wav": "@dev",
     "google/cloud": "^0.90.0"
   },
   "autoload": {
