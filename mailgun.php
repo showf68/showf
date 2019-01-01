@@ -1,7 +1,7 @@
 <?php
 
-function \Mailgun\Mailgun($to, $from_name, $from_mail, $reply, $subject, $text, $is_html = false, $fileContent = false, $filename = false){
-$mgClient = new Mailgun(API_KEY);
+function Mailgun($to, $from_name, $from_mail, $reply, $subject, $text, $is_html = false, $fileContent = false, $filename = false){
+$mgClient = new \Mailgun\Mailgun(API_KEY);
 
     $html = $text ?: ' ';
     if ($is_html != 2)
