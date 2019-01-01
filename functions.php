@@ -1,9 +1,5 @@
 <?php
 
-function addCron($script, $when = '* * * * *') {
-    return exec("crontab -l | { cat; echo '$when php $script'; } |crontab -");
-}
-
 function seconds2hours($init) {
     $hours = floor($init / 3600);
     $minutes = floor(($init / 60) % 60);
