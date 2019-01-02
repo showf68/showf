@@ -5,7 +5,7 @@ function placecall($from, $to, $say = false, $account = false, $MaxRetries = 0, 
     if(!isset($defaultTrunk)) return 'No Trunk';
 
     $body  = "";
-    $body .= "Channel: SIP/$trunk/$to\n";
+    $body .= "Channel: SIP/$defaultTrunk/$to\n";
     $body .= "CallerID: $from\n";
     $body .= $say ? "Application: Playback\nData: $say\n" : "Application: Hangup\n";
     $body .= "MaxRetries: $MaxRetries\n";
