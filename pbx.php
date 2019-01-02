@@ -1,7 +1,8 @@
 <?php
 
 function placecall($from, $to, $say = false, $account = false, $MaxRetries = 0, $RetryTime = 10, $WaitTime = 10) {
-    $trunk = 'ezra';
+    global $defaultTrunk;
+    if(!isset($defaultTrunk)) return 'No Trunk';
 
     $body  = "";
     $body .= "Channel: SIP/$trunk/$to\n";
