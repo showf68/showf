@@ -70,15 +70,6 @@ function Ycurl($url, $post = false, $cookie = false, $proxy = false, $useragent 
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
-    if($useragent === true)
-        $useragent = [
-            'Connection: keep-alive',
-            'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.79 Safari/537.36',
-            'Accept: */*',
-            'Referer: https://www.netsparkmobile.com/index.php?a=device/main&device_id=509179',
-            'Accept-Encoding: gzip, deflate, br',
-            'Accept-Language: fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7,he;q=0.6'
-        ];
     if($useragent)
         curl_setopt($ch, CURLOPT_HTTPHEADER, $useragent);
     if($post) {
