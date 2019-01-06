@@ -2,7 +2,7 @@
 
 /*
  * by @showf
- * https://github.com/showf68/showf/blob/master/src/AGIshowf/AGIshowf.class.php
+ * https://github.com/showf68/showf/
  */
 
 const RECORD = 'RECORD';
