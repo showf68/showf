@@ -5,61 +5,81 @@
  * https://github.com/showf68/showf/blob/master/src/AGIshowf/AGIshowf.class.php
  */
 
-namespace AGIshowf;
+const RECORD = 'RECORD';
+const SAY = 'SAY';
+const YESNO = 'YESNO';
 
-class AGIshowf extends \AGI  {
+class AGIshowf extends AGI  {
 
     private $bingTokenFile = '/tmp/bingToken.txt';
-    private $soundsFolder;
+    private $soundsFolder = 'user/';
+    private $sayModes = array('t' => 'STREAM FILE', 'f' => 'STREAM FILE', 'd' => 'SAY DIGITS', 'n' => 'SAY NUMBER');
 
-    public function soundsSetFolder($folder) {
-        $this -> soundsFolder = $folder;
+    public function getCID() {
+        $phone = preg_replace("#[^0-9]#", "", $this -> request['agi_callerid']);
+        return $phone;
     }
 
-    public function say($say, $max_digits = 1)
+    public function soundsSetFolder($folder) {
+        $this -> soundsFolder = "user/$folder/";
+    }
+
+    public function say($say, $readMode = SAY, $default_choice = false)
     {
-        $dtmf_allowed = '0123456789*#';
+        $dtmf = '';
+        switch($readMode) {
+            case SAY:         $dtmf_allowed = '';             break;
+            case YESNO:       $dtmf_allowed = '12';           break;
+            default :         $dtmf_allowed = AST_DIGIT_ANY;  break;
+        }
         foreach (explode('.', $say) AS $s) {
-            $mode = substr($s, 0, 1);
+            $sayMode = substr($s, 0, 1);
             $data = substr($s, 2);
-            switch ($mode) {
+            if(!$sayMode OR !$data OR !array_key_exists($sayMode, $this -> sayModes))   continue;
+            switch($sayMode) {
                 case 't':
-                    $digit = $this -> stream_file($this -> bingTTS($data), $dtmf_allowed)['result'];
+                    $data = $this -> bingTTS($data);
                     break;
                 case 'f':
-                    // if($this -> soundsFolder)
-                    $digit = $this -> stream_file('user/'. $this -> soundsFolder .'/'. $data, $dtmf_allowed)['result'];
-                    // else
-                    //    $digit = $this -> stream_file('user/'. $data, $dtmf_allowed)['result'];
-                    break;
-                case 'd':
-                    $digit = $this -> say_digits($data)['result'];
-                    break;
-                case 'n':
-                    $digit = $this -> say_number($data)['result'];
+                    $data = (substr($data, 0, 1) == '/') ? substr($data, 1) : $this -> soundsFolder . $data;
                     break;
             }
-            if($max_digits AND $digit) {
-                $dtmf = chr($digit);
-                if($dtmf == '#') return '';
-                if($max_digits == 1)  return $dtmf;
-                for($i = 1; $i < $max_digits; $i++){
-                    $digit = $this -> wait_for_digit()['result'];
-                    if(chr($digit) == '#') return $dtmf;
-                    $dtmf .= chr($digit);
-                }
-                return $dtmf;
-            }
+            $digit = $this -> evaluate($this -> sayModes[$sayMode] ." $data '$dtmf_allowed'")['result'];
+            if (!$digit OR $readMode == SAY) continue;
+            $dtmf = chr($digit);
+            goto getDTMF;
         }
+        if ($default_choice) return $default_choice;
+        if ($readMode == SAY) return;
+        if ($readMode == RECORD) {
+            $STTfilename = 'STT/'.uniqid(rand());
+            $digit = $this -> record_file($STTfilename, 'wav', AST_DIGIT_ANY, 15000, null, true, 4)['result'];
+            $dtmf = chr($digit);
+            if($dtmf != '#')   goto getDTMF;
+            $text = $this -> STTgoogle("/usr/share/asterisk/sounds/$STTfilename.wav");
+            unlink("/usr/share/asterisk/sounds/$STTfilename.wav");
+            return $text;
+        }
+
+        getDTMF:
+        do {
+            if($dtmf AND $readMode == YESNO OR substr($dtmf, -1) == '#')    break;
+            $digit = $this -> wait_for_digit()['result'];
+            $dtmf .= chr($digit);
+        }
+        while (true);
+        $dtmf = rtrim($dtmf, '#');
+        if($readMode == RECORD)     $dtmf = '^'.$dtmf;
+        return $dtmf;
     }
 
     private function bingGetToken()  {
-        global $apiKey;
+        global $bingApiKey;
 
         $AccessTokenUri = "https://westus.api.cognitive.microsoft.com/sts/v1.0/issueToken";
         $options = array(
             'http' => array(
-                'header' => "Ocp-Apim-Subscription-Key: " . $apiKey . "\r\n" .
+                'header' => "Ocp-Apim-Subscription-Key: " . $bingApiKey . "\r\n" .
                     "content-length: 0\r\n",
                 'method' => 'POST',
             ),
@@ -80,9 +100,9 @@ class AGIshowf extends \AGI  {
         $voice->setAttribute("xml:lang", "he-IL");
         $voice->setAttribute("xml:gender", "Male");
         $voice->setAttribute("name", "Microsoft Server Speech Text to Speech Voice (he-IL, Asaf)");
-        $textNode = $doc->createTextNode($text);
+        $text = $doc->createTextNode($text);
 
-        $voice->appendChild($textNode);
+        $voice->appendChild($text);
         $root->appendChild($voice);
         $doc->appendChild($root);
         $data = $doc->saveXML();
@@ -107,20 +127,38 @@ class AGIshowf extends \AGI  {
 
     private function bingTTS($text)
     {
-        $directory = '/usr/share/asterisk/sounds/tts/';
-        $filename = $directory.'bing_'.hash('md5', $text);
-        if(file_exists($filename.'.ulaw'))   return $filename;
+        $directory = '/usr/share/asterisk/sounds/TTS/';
+        $filename = $directory . 'bing_' . hash('md5', $text);
+        if (file_exists($filename . '.ulaw')) return $filename;
 
-        if(file_exists($this -> bingTokenFile) AND (time() - filectime($this -> bingTokenFile) < 600))
-            $access_token = file_get_contents($this -> bingTokenFile);
+        if (file_exists($this->bingTokenFile) AND (time() - filectime($this->bingTokenFile) < 600))
+            $access_token = file_get_contents($this->bingTokenFile);
         else
-            $access_token = $this -> bingGetToken();
+            $access_token = $this->bingGetToken();
 
-        $result = $this -> bingGetAnswer($text, $access_token);
+        $result = $this->bingGetAnswer($text, $access_token);
         $size = strlen($result);
-        if($size < 80)            return 'beep';
+        if ($size < 80) {
+            $this -> verbose("TTS ERROR: $text");
+            return 'beep';
+        }
         file_put_contents("$filename.ulaw", $result);
-
         return $filename;
     }
+
+    /**
+     * @param string $filename
+     * @param string $language
+     * @return string|null
+     */
+    private function STTgoogle($filename, $language = 'he')
+    {
+        $return = null;
+        $speech = new \Google\Cloud\Speech\SpeechClient(['languageCode' => $language, 'keyFilePath' => '/usr/share/php/STTkey.json']);
+        $results = $speech->recognize(fopen($filename, 'r'), ['encoding' => 'LINEAR16'], ['sampleRate' => '8000']);
+        if(isset($results[0])) $return = $results[0]->topAlternative()['transcript'];
+        return $return;
+    }
 }
+
+
