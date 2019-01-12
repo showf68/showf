@@ -1,63 +1,46 @@
 <?php
-function PrepareSQL($tabley, $usery, $passy, $servery = 'localhost', $porty = 3306) {
-	global $table, $user, $pass, $server, $port;
-	$table = $tabley;
-	$user = $usery;
-	$pass = $passy;
-	$server = $servery;
-	$port = $porty;
+function PrepareSQL($database1, $user1, $pass1, $server1 = 'localhost', $port1 = 3306) {
+	global $database, $user, $pass, $server, $port;
+	$database	= $database1;
+	$user 		= $user1;
+	$pass 		= $pass1;
+	$server 	= $server1;
+	$port 		= $port1;
 }
- //a
-function ConnectSQL($table, $user, $pass, $server = 'localhost', $port = 3306) {
-	global $bdd, $sql_error;	
+
+function ConnectSQL($database, $user, $pass, $server = 'localhost', $port = 3306) {
+	global $objectSQL, $errorSQL;	
 	
 	try {
 		$pdo_options[PDO::ATTR_ERRMODE] = PDO::ERRMODE_EXCEPTION;
-		$bdd = new PDO("mysql:host=$server; port=$port; dbname=$table; charset=utf8mb4", $user, $pass, $pdo_options);
-		$bdd -> exec("SET NAMES 'utf8mb4'");
+		$objectSQL = new PDO("mysql:host=$server; port=$port; dbname=$database; charset=utf8mb4", $user, $pass, $pdo_options);
+		$objectSQL -> exec("SET NAMES 'utf8mb4'");
 	}
 	catch(Exception $e) {
-		$sql_error = $e -> getMessage();
+		$errorSQL = $e -> getMessage();
 	}
 }
 
 function CheckSQL() {
-	global $bdd, $table, $user, $pass, $server, $port;
-	if(!$bdd)	ConnectSQL($table, $user, $pass, $server, $port);
-}
-
-function VerifyTableSQL($table) {
-	global $bdd;
-	global $prefix; $table = $prefix.'_'.$table;
-	global $sql_details;
-	CheckSQL();
-	
-	$requete_text = "SHOW TABLES FROM ".$sql_details['table']." LIKE '$table'";
-	
-	$requete = $bdd -> prepare($requete_text);
-	$requete -> execute(array());
-	$reponse = $requete -> fetch();
-	$requete -> closeCursor();
-	if ($reponse)
-		return true;
-	else
-		return false;
+	global $objectSQL, $database, $user, $pass, $server, $port;
+	if(!$objectSQL)	ConnectSQL($database, $user, $pass, $server, $port);
 }
 
 function EmptySQL($table) {
-	global $bdd, $prefix, $SQLerror;
+	global $objectSQL, $prefixSQL, $errorSQL;
 	CheckSQL();
+	$table = substr($table, 0, 1) == '#' ? ltrim($table, '#') : $prefixSQL.'_'.$table;
 	
 	if(substr($table, 0, 1) == '#')		$table = trim($table, '#');
-	else								$table = $prefix.'_'.$table;
+	else								$table = $prefixSQL.'_'.$table;
 
 	$sql = "TRUNCATE TABLE $table";
-	$bdd -> exec($sql);
+	$objectSQL -> exec($sql);
 }
 	
 function CreateSQL($table, $fields) {
-	global $bdd;
-	global $prefix; $table = $prefix.'_'.$table;
+	global $objectSQL;
+	global $prefixSQL; $table = $prefixSQL.'_'.$table;
 	CheckSQL();
 
     $sql = "CREATE TABLE $table(";
@@ -88,15 +71,13 @@ function CreateSQL($table, $fields) {
 	}
 	$sql = trim($sql, ', ') . ")";
 
-	$bdd -> exec($sql);
+	$objectSQL -> exec($sql);
 }
 
 function InsertSQL($table, $insert_array, $replace = false, $echo = false) {
-	global $bdd, $prefix, $SQLerror;
 	CheckSQL();
-	
-	if(substr($table, 0, 1) == '#')		$table = trim($table, '#');
-	else								$table = $prefix.'_'.$table;
+	global $prefixSQL;
+	$table = substr($table, 0, 1) == '#' ? ltrim($table, '#') : $prefixSQL.'_'.$table;
 
     if(is_string($insert_array))    $insert_array = compact(explode(' ', $insert_array));
 	$insertA = '';
@@ -111,189 +92,101 @@ function InsertSQL($table, $insert_array, $replace = false, $echo = false) {
     	$requete_text = "REPLACE INTO $table($insertA) VALUES($insertB)";
     else
     	$requete_text = "INSERT INTO $table($insertA) VALUES($insertB)";
-	if($echo) {
-		echo "$requete_text<br>";pre($insert_array);
-	}
-	// $requete = $bdd -> prepare($requete_text);
-	// $requete -> execute($insert_array);
-	// $id = $bdd -> lastInsertId();
-	// $requete -> closeCursor();
-	// return $id; 
-	try {
-		$requete = $bdd -> prepare($requete_text);
-		$requete -> execute($insert_array);
-		$id = $bdd -> lastInsertId();
-		$requete -> closeCursor();
-		return $id; 
-	} catch (Exception $e) {
-		$SQLerror = $e -> getMessage();
-		return 'ERROR';
-	}	
+
+	if($echo) {echo $requete_text;pre($insert_array);}
+	return ExecuteSQL($requete_text, $insert_array, 'id');
 }			
 
-function DeleteSQL($table, $where_array) {
-	global $bdd, $prefix;
+function DeleteSQL($table, $where = false, $echo = false) {
 	CheckSQL();
-	
-	if(substr($table, 0, 1) == '#')		$table = trim($table, '#');
-	else								$table = $prefix.'_'.$table;
-	
-	$where = '';
-	foreach ($where_array as $w => $z)
-		$where .= "$w= :$w, ";
-	$where = trim($where, ', ');
+	global $prefixSQL;
+	$table = substr($table, 0, 1) == '#' ? ltrim($table, '#') : $prefixSQL.'_'.$table;
 
-	$requete_text = "DELETE FROM $table WHERE $where";
-	$requete = $bdd -> prepare($requete_text);
-	$requete -> execute($where_array);
-	$requete -> closeCursor();
+	list($where_text, $where_array) 	= WhereSQL($where);
+
+	$requete_text  = "DELETE FROM $table";
+	if($where_text)	$requete_text .= " WHERE $where_text";
+	
+	if($echo) {echo $requete_text;pre($where_array);}
+	return ExecuteSQL($requete_text, $where_array);
 }			
 
-function UpdateSQL($table, $update_array, $where_array, $echo = false) {
-	global $bdd, $prefix;
+function UpdateSQL($table, $update, $where = false, $echo = false) {
 	CheckSQL();
-	
-	if(substr($table, 0, 1) == '#')		$table = trim($table, '#');
-	else								$table = $prefix.'_'.$table;
+	global $prefixSQL;
+	$table = substr($table, 0, 1) == '#' ? ltrim($table, '#') : $prefixSQL.'_'.$table;
 
-	$update = '';
-	foreach ($update_array as $w => $z)
-		$update .= "$w= :$w, ";
-	$update = trim($update, ', ');
+	list($update_text, $update_array) 	= WhereSQL($update);
+	list($where_text, $where_array) 	= WhereSQL($where);
 	
-	$where = '';
-	foreach ($where_array as $w => $z)
-		$where .= "$w= :$w, ";
-	$where = trim($where, ', ');
-
-	
-	$requete_text = "UPDATE $table SET $update WHERE $where";
+	$requete_text  = "UPDATE $table";
+	$requete_text .= " SET $update_text";
+	if($where_text)	$requete_text .= " WHERE $where_text";
 	$merged_array = array_merge($update_array, $where_array);
-	if($echo) {
-		echo $requete_text;
-		pre($merged_array);
-	}
-	$requete = $bdd -> prepare($requete_text);
-	$requete -> execute($merged_array);
-	$requete -> closeCursor();
+	
+	if($echo) {return $merged_array;}
+	return ExecuteSQL($requete_text, $merged_array);
 }			
- 
-function SelectSQL($table, $where_array = array(), $order_by = false, $limit = false, $echo = false, $all = false) {
-	global $bdd, $prefix;
+ 	
+function SelectSQL($table, $where = array(), $order_by = false, $limit = false, $echo = false) {
 	CheckSQL();
-	
-	if(substr($table, 0, 1) == '#')		$table = trim($table, '#');
-	else								$table = $prefix.'_'.$table;
+	global $prefixSQL;
+	$table = substr($table, 0, 1) == '#' ? ltrim($table, '#') : $prefixSQL.'_'.$table;
 
-	if(substr($table, -1) == '+') {
-		$table = trim($table, '+');
-		$all = true;
-	}
+	$fetch = substr($table, -1) == '+' ? 'all' : 'one';
+	$table = rtrim($table, '+');
+	list($where_text, $where_array) = WhereSQL($where);
+	
 	$requete_text = "SELECT * FROM $table";
- 
-	$where = '';				$new_where = array();
-	if($where_array) {
-		if(is_array($where_array)) {
-			foreach ($where_array as $w => $z) {
-				if(substr($w, -2, 1) != '|')		$w .= '|=';
-				$w_value 	= explode('|', $w)[0];	$w_operator = explode('|', $w)[1];
-				if($w_operator == '!') $w_operator = '!=';
-				$where .= "$w_value $w_operator :$w_value AND ";
-				$new_where[$w_value] = $z;
-			}
-		} else {
-			$where = $where_array;
-		}
-		$where = trim($where);
-		if(substr($where, -3) == 'AND')
-			$where = substr($where, 0, -3);
-//		$where = trim($where, ' AND ');
-		$requete_text = "$requete_text WHERE $where";
-	}
-	if($order_by)
-		$requete_text = "$requete_text ORDER BY $order_by";
-	if($limit)
-		$requete_text = "$requete_text LIMIT $limit";
-
-	if ($echo) {echo $requete_text; pre($new_where);exit;}
-	
-	if(is_array($where_array)) {
-        $requete = $bdd -> prepare($requete_text);
-		$requete -> execute($new_where);
-	} else {
-		$requete = $bdd -> query($requete_text);
-	}
-	if($all)
-		$reponse = $requete -> fetchAll();
-	else
-		$reponse = $requete -> fetch();
-	$requete -> closeCursor();
-	return $reponse;
-}
-
-function SelectAllSQL($table, $where_array = array(), $order_by = false, $limit = false, $echo = false) {
-	return SelectSQL($table, $where_array, $order_by, $limit, $echo, true);
-}
-
-function ExtractSQL($all, $table, $select_string = '*', $where_array = array(), $order_by = false, $limit = false, $echo = false) {
-	global $bdd, $prefix;
-	CheckSQL();
-	
-	if(substr($table, 0, 1) == '#')		$table = trim($table, '#');
-	else								$table = $prefix.'_'.$table;
-
-	
-	$requete_text = "SELECT $select_string FROM $table";
-
-	if ($where_array) {
-		if (is_array($where_array)) {
-			$where = '';
-			foreach ($where_array as $w => $z)
-				$where .= "$w=:$w AND ";
-		} else {
-			$where = $where_array;
-		}
-		$where = trim($where, ' AND ');
-		$requete_text = "$requete_text WHERE $where";
-	}
-	if ($order_by)
-		$requete_text = "$requete_text ORDER BY $order_by";
-	if ($limit)
-		$requete_text = "$requete_text LIMIT $limit";
+	if($where_text)		$requete_text .= " WHERE $where_text";
+	if($order_by)		$requete_text .= " ORDER BY $order_by";
+	if($limit)			$requete_text .= " LIMIT $limit";
 
 	if ($echo) {echo $requete_text; pre($where_array);exit;}
-	
-	try{
-		if(is_array($where_array)) {
-			$requete = $bdd -> prepare($requete_text);
-			$requete -> execute($where_array);
-		} else {
-			$requete = $bdd -> query($requete_text);
-		}
-		if($all)
-			$reponse = $requete -> fetchAll();
-		else
-			$reponse = $requete -> fetch();
-		$requete -> closeCursor();
-		return $reponse;
-	} catch (Exception $e) {
-		return '';
-	}	
-}
-
-function SingleSQL($table, $where_array = array(), $order_by = false, $limit = false, $all = false) {
-	return SelectSQL($table, $where_array, $order_by, $limit, $all);
+	return ExecuteSQL($requete_text, $where_array, $fetch);
 }
 
 function CustomSQL($all, $requete_text) {
-	global $bdd;
 	CheckSQL();
+	global $prefixSQL;
 
-    $requete = $bdd -> query($requete_text);
-	if ($all)
-		$reponse = $requete -> fetchAll();
-	else
-		$reponse = $requete -> fetch();
-	$requete -> closeCursor();
-	return $reponse;
+	$fetch = $all ? 'all' : 'one';
+
+	return ExecuteSQL($requete_text, false, $fetch);
+}
+
+function ExecuteSQL($text, $array = [], $flag = false) {
+	global $objectSQL, $errorSQL;
+	$return = '';
+	try {
+		$requete = $objectSQL -> prepare($text);
+		$requete -> execute($array);
+		if($flag == 'one')		$return = $requete -> fetch();
+		if($flag == 'all')		$return = $requete -> fetchAll();
+		if($flag == 'id')		$return = $objectSQL -> lastInsertId();
+		$requete -> closeCursor();
+	} catch (Exception $e) {
+		$errorSQL = $e -> getMessage();
+		$return = 'ERROR';
+	}
+	return $return;
+}
+
+function WhereSQL($where) {
+	if(!$where) return ['', []];
+	$text = '';
+	$array = [];
+	if (is_array ($where)) {
+		foreach ($where as $w => $z) {
+			if(substr($w, -2, 1) != '|')		$w .= '|=';
+			$w_value 	= explode('|', $w)[0];	$w_operator = explode('|', $w)[1];
+			if($w_operator == '!') $w_operator = '!=';
+			$text .= "$w_value $w_operator :$w_value AND ";
+			$array[$w_value] = $z;
+		}
+		$text = substr($text, 0, -5);
+	} else
+		$text = $where;
+	
+	return [$text, $array];
 }
