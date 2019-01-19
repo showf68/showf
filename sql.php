@@ -30,9 +30,6 @@ function EmptySQL($table) {
 	global $objectSQL, $prefixSQL, $errorSQL;
 	CheckSQL();
 	$table = substr($table, 0, 1) == '#' ? ltrim($table, '#') : $prefixSQL.'_'.$table;
-	
-	if(substr($table, 0, 1) == '#')		$table = trim($table, '#');
-	else								$table = $prefixSQL.'_'.$table;
 
 	$sql = "TRUNCATE TABLE $table";
 	$objectSQL -> exec($sql);
