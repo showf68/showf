@@ -145,11 +145,9 @@ function SelectSQL($table, $where = array(), $order_by = false, $limit = false, 
 
 function CustomSQL($all, $requete_text) {
 	CheckSQL();
-	global $prefixSQL;
-
 	$fetch = $all ? 'all' : 'one';
 
-	return ExecuteSQL($requete_text, false, $fetch);
+	return ExecuteSQL($requete_text, [], $fetch);
 }
 
 function ExecuteSQL($text, $array = [], $flag = false) {
