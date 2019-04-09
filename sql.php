@@ -27,10 +27,10 @@ function CheckSQL() {
 }
 
 function EmptySQL($table) {
-	global $objectSQL, $prefixSQL, $errorSQL;
+	global $objectSQL, $prefixSQL;
 	CheckSQL();
 	$table = substr($table, 0, 1) == '#' ? ltrim($table, '#') : $prefixSQL.'_'.$table;
-
+	
 	$sql = "TRUNCATE TABLE $table";
 	$objectSQL -> exec($sql);
 }
@@ -110,10 +110,10 @@ function DeleteSQL($table, $where = false, $echo = false) {
 
 function UpdateSQL($table, $update, $where = false, $echo = false) {
 	CheckSQL();
-	global $prefixSQL;
+	global $prefixSQL; 
 	$table = substr($table, 0, 1) == '#' ? ltrim($table, '#') : $prefixSQL.'_'.$table;
 
-	list($update_text, $update_array) 	= WhereSQL($update);
+	list($update_text, $update_array) 	= WhereSQL($update, ",");
 	list($where_text, $where_array) 	= WhereSQL($where);
 	
 	$requete_text  = "UPDATE $table";
@@ -145,6 +145,7 @@ function SelectSQL($table, $where = array(), $order_by = false, $limit = false, 
 
 function CustomSQL($all, $requete_text) {
 	CheckSQL();
+
 	$fetch = $all ? 'all' : 'one';
 
 	return ExecuteSQL($requete_text, [], $fetch);
@@ -167,7 +168,7 @@ function ExecuteSQL($text, $array = [], $flag = false) {
 	return $return;
 }
 
-function WhereSQL($where) {
+function WhereSQL($where, $separator = "AND") {
 	if(!$where) return ['', []];
 	$text = '';
 	$array = [];
@@ -176,10 +177,10 @@ function WhereSQL($where) {
 			if(substr($w, -2, 1) != '|')		$w .= '|=';
 			$w_value 	= explode('|', $w)[0];	$w_operator = explode('|', $w)[1];
 			if($w_operator == '!') $w_operator = '!=';
-			$text .= "$w_value $w_operator :$w_value AND ";
+			$text .= "$w_value $w_operator :$w_value $separator ";
 			$array[$w_value] = $z;
 		}
-		$text = substr($text, 0, -5);
+		$text = substr($text, 0, -strlen($separator) - 2);
 	} else
 		$text = $where;
 	
