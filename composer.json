@@ -10,7 +10,7 @@
     "php": ">=5.3.0",
     "php-http/guzzle6-adapter": "^1.0",
     "mailgun/mailgun-php": "^2.6",
-    "google/cloud-speech": "@dev"
+    "google/cloud-speech": "0.*"
   },
   "autoload": {
     "files": ["loader.php"]
