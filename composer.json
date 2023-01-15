@@ -6,10 +6,9 @@
   "minimum-stability": "dev",
   "license": "Apache-2.0",
   "authors": [{"name": "showf", "role": "Developer"}],
-  "require": {
-    "showf68/showf": "@dev"
-  },
   "autoload": {
-    "files": ["loader.php"]
+    "psr-4": {
+      "showf68\\showf\\": "src/"
+    }
   }
 }
