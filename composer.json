@@ -7,17 +7,7 @@
   "license": "Apache-2.0",
   "authors": [{"name": "showf", "role": "Developer"}],
   "require": {
-    "showf68/showf": "@dev",
-    "php-http/guzzle6-adapter": "^1.0",
-    "mailgun/mailgun-php": "^2.6",
-    "google/cloud-speech": "^0.18",
-    "stripe/stripe-php": "^7.79",
-    "fpdf/fpdf": "^1.83",
-    "mpdf/mpdf": "^8.0",
-    "google/apiclient": "^2.9",
-    "twilio/sdk": "^5.42",
-    "telnyx/telnyx-php": "^2.5",
-    "aws/aws-sdk-php": "^3.196"
+    "showf68/showf": "@dev"
   },
   "autoload": {
     "files": ["loader.php"]
