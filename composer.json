@@ -4,7 +4,6 @@
   "type": "library",
   "description": "showf functions",
   "keywords": ["showf"],
-  "minimum-stability": "dev",
   "license": "Apache-2.0",
   "authors": [{"name": "showf", "role": "Developer"}],
   "autoload": {
