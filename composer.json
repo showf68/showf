@@ -1,3 +1,4 @@
+
 {
   "name": "showf68/showf",
   "type": "library",
@@ -7,8 +8,6 @@
   "license": "Apache-2.0",
   "authors": [{"name": "showf", "role": "Developer"}],
   "autoload": {
-    "psr-4": {
-      "showf68\\showf\\": "src/"
-    }
+    "files": ["loader.php"]
   }
 }
