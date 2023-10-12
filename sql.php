@@ -1,39 +1,55 @@
 <?php
-function PrepareSQL($database1, $user1, $pass1, $server1 = 'localhost', $port1 = 3306)
+
+function PrepareSQL($databaseSQL1, $userSQL1, $passSQL1, $serverSQL1 = 'localhost', $portSQL1 = 3306)
 {
-    global $database, $user, $pass, $server, $port, $objectSQL;
-    $database = $database1;
-    $user = $user1;
-    $pass = $pass1;
-    $server = $server1;
-    $port = $port1;
+    global $databaseSQL, $userSQL, $passSQL, $serverSQL, $portSQL, $objectSQL;
+    $databaseSQL = $databaseSQL1;
+    $userSQL = $userSQL1;
+    $passSQL = $passSQL1;
+    $serverSQL = $serverSQL1;
+    $portSQL = $portSQL1;
     $objectSQL = null;
 }
 
-function ConnectSQL($database, $user, $pass, $server = 'localhost', $port = 3306)
+function ConnectSQL($databaseSQL, $userSQL, $passSQL, $serverSQL = 'localhost', $portSQL = 3306)
 {
     global $objectSQL, $errorSQL;
-
     try {
-        $pdo_options[PDO::ATTR_ERRMODE] = PDO::ERRMODE_EXCEPTION;
-        $objectSQL = new PDO("mysql:host=$server; port=$port; dbname=$database; charset=utf8mb4", $user, $pass, $pdo_options);
+        $pdo_optionsSQL[PDO::ATTR_ERRMODE] = PDO::ERRMODE_EXCEPTION;
+        $objectSQL = new PDO("mysql:host=$serverSQL; port=$portSQL; dbname=$databaseSQL; charset=utf8mb4", $userSQL, $passSQL, $pdo_optionsSQL);
         $objectSQL->exec("SET NAMES 'utf8mb4'");
-    } catch (Exception $e) {
-        $errorSQL = $e->getMessage();
+    } catch (Exception $eSQL) {
+        $errorSQL = $eSQL->getMessage();
     }
 }
 
 function CheckSQL()
 {
-    global $objectSQL, $database, $user, $pass, $server, $port;
-    if (!$objectSQL) ConnectSQL($database, $user, $pass, $server, $port);
+    global $objectSQL, $databaseSQL, $userSQL, $passSQL, $serverSQL, $portSQL;
+    if (!$objectSQL) ConnectSQL($databaseSQL, $userSQL, $passSQL, $serverSQL, $portSQL);
+}
+
+function ChangeSQL($dbname, $prefix0 = false)
+{
+    CheckSQL();
+    global $objectSQL, $prefixSQL, $errorSQL;
+//    if (!is_object($objectSQL)) return 'ERROR';
+
+    try {
+        $objectSQL->exec('USE ' . $dbname);
+        if ($prefix0) $prefixSQL = $prefix0;
+        if ($prefix0 == '-') $prefixSQL = false;
+    } catch (Exception $e) {
+        $errorSQL = $e->getMessage();
+        return 'ERROR';
+    }
 }
 
 function EmptySQL($table)
 {
     CheckSQL();
-    global $prefixSQL, $objectSQL;
-    $table = (isset($prefixSQL) AND substr($table, 0, 1) != '#') ? $table = $prefixSQL . '_' . $table : $table = ltrim($table, '#');
+    global $objectSQL;
+    $table = tikunTable($table);
 
     $sql = "TRUNCATE TABLE $table";
     $objectSQL->exec($sql);
@@ -42,8 +58,8 @@ function EmptySQL($table)
 function CreateSQL($table, $fields)
 {
     CheckSQL();
-    global $prefixSQL, $objectSQL;
-    $table = (isset($prefixSQL) AND substr($table, 0, 1) != '#') ? $table = $prefixSQL . '_' . $table : $table = ltrim($table, '#');
+    global $objectSQL;
+    $table = tikunTable($table);
 
     $sql = "CREATE TABLE $table(";
     foreach ($fields as $field) {
@@ -76,11 +92,42 @@ function CreateSQL($table, $fields)
     $objectSQL->exec($sql);
 }
 
-function InsertSQL($table, $insert_array, $replace = false, $echo = false)
+function InsertSQL2($table, $insertArray = [], $echo = false)
 {
     CheckSQL();
+    $table = tikunTable($table);
+
+    $keysString = implode(', ', array_keys($insertArray));
+    $questionsString = implode(', ', array_fill(0, count($insertArray), '?'));
+    $values = array_values($insertArray);
+
+    $requeteText = "INSERT INTO $table";
+    if ($insertArray) $requeteText .= "($keysString) VALUES($questionsString)";
+
+    if ($echo) {
+        echo $requeteText;
+        pre($insertArray, 1);
+    }
+    return ExecuteSQL($requeteText, $values, 'id');
+}
+
+function tikunTable($table)
+{
     global $prefixSQL;
-    $table = (isset($prefixSQL) AND substr($table, 0, 1) != '#') ? $table = $prefixSQL . '_' . $table : $table = ltrim($table, '#');
+
+    if (isset($prefixSQL) and $prefixSQL and substr($table, 0, 1) != '#' and !strpos($table, '.'))
+        return $prefixSQL . ($table ? '_' . $table : '');
+    else
+        return ltrim($table, '#');
+
+}
+
+function InsertSQL($table, $insert_array, $replace = false, $echo = false, $ignore = false)
+{
+    CheckSQL();
+//	global $prefixSQL;
+//	$table = (isset($prefixSQL) and substr($table, 0, 1) != '#') ? $table = $prefixSQL . '_' . $table : $table = ltrim($table, '#');
+    $table = tikunTable($table);
 
     if (is_string($insert_array)) $insert_array = compact(explode(' ', $insert_array));
     $insertA = '';
@@ -94,7 +141,7 @@ function InsertSQL($table, $insert_array, $replace = false, $echo = false)
     if ($replace)
         $requete_text = "REPLACE INTO $table($insertA) VALUES($insertB)";
     else
-        $requete_text = "INSERT INTO $table($insertA) VALUES($insertB)";
+        $requete_text = "INSERT " . ($ignore ? "IGNORE" : "") . " INTO $table($insertA) VALUES($insertB)";
 
     if ($echo) {
         echo $requete_text;
@@ -103,11 +150,27 @@ function InsertSQL($table, $insert_array, $replace = false, $echo = false)
     return ExecuteSQL($requete_text, $insert_array, 'id');
 }
 
+function InsertSQLSimple($table, $insert_array, $echo = false, $ignore = false)
+{
+    if (!$insert_array) return;
+
+    CheckSQL();
+    $table = tikunTable($table);
+
+    $columns = implode(', ', array_keys($insert_array[0]));
+    $requestSQL = "INSERT " . ($ignore ? "IGNORE" : "") . " INTO $table($columns) VALUES ";
+    foreach ($insert_array as $values)
+        $requestSQL .= "('" . implode("','", $values) . "'),";
+    $requestSQL = substr($requestSQL, 0, -1);
+    if ($echo) pre($requestSQL, 1);
+
+    return ExecuteSQL($requestSQL, [], 'id');
+}
+
 function DeleteSQL($table, $where = false, $echo = false)
 {
     CheckSQL();
-    global $prefixSQL;
-    $table = (isset($prefixSQL) AND substr($table, 0, 1) != '#') ? $table = $prefixSQL . '_' . $table : $table = ltrim($table, '#');
+    $table = tikunTable($table);
 
     list($where_text, $where_array) = WhereSQL($where);
 
@@ -124,8 +187,7 @@ function DeleteSQL($table, $where = false, $echo = false)
 function UpdateSQL($table, $update, $where = false, $echo = false)
 {
     CheckSQL();
-    global $prefixSQL;
-    $table = (isset($prefixSQL) AND substr($table, 0, 1) != '#') ? $table = $prefixSQL . '_' . $table : $table = ltrim($table, '#');
+    $table = tikunTable($table);
 
     list($update_text, $update_array) = WhereSQL($update, ",");
     list($where_text, $where_array) = WhereSQL($where);
@@ -136,6 +198,7 @@ function UpdateSQL($table, $update, $where = false, $echo = false)
     $merged_array = array_merge($update_array, $where_array);
 
     if ($echo) {
+        pre($requete_text);
         return $merged_array;
     }
     return ExecuteSQL($requete_text, $merged_array);
@@ -144,8 +207,8 @@ function UpdateSQL($table, $update, $where = false, $echo = false)
 function SelectSQL($table, $where = array(), $order_by = false, $limit = false, $echo = false)
 {
     CheckSQL();
-    global $prefixSQL;
-    $table = substr($table, 0, 1) == '#' ? ltrim($table, '#') : $prefixSQL . '_' . $table;
+    //   if($table == 'inbox+') verbose($where);
+    $table = tikunTable($table);
 
     $fetch = substr($table, -1) == '+' ? 'all' : 'one';
     $table = rtrim($table, '+');
@@ -168,8 +231,7 @@ function SelectSQL($table, $where = array(), $order_by = false, $limit = false, 
 function CountSQL($table, $where = array(), $echo = false)
 {
     CheckSQL();
-    global $prefixSQL;
-    $table = (isset($prefixSQL) AND substr($table, 0, 1) != '#') ? $table = $prefixSQL . '_' . $table : $table = ltrim($table, '#');
+    $table = tikunTable($table);
 
     list($where_text, $where_array) = WhereSQL($where);
 
@@ -184,11 +246,16 @@ function CountSQL($table, $where = array(), $echo = false)
     return ExecuteSQL($requete_text, $where_array, 'count');
 }
 
+function ColumnsSQL($database, $table)
+{
+    $sql = SelectSQL('#INFORMATION_SCHEMA.COLUMNS+', array('TABLE_SCHEMA' => $database, 'TABLE_NAME' => $table));
+    return array_column($sql, 'COLUMN_NAME');
+}
+
 function SumSQL($table, $key, $where = array(), $echo = false)
 {
     CheckSQL();
-    global $prefixSQL;
-    $table = (isset($prefixSQL) AND substr($table, 0, 1) != '#') ? $table = $prefixSQL . '_' . $table : $table = ltrim($table, '#');
+    $table = tikunTable($table);
 
     list($where_text, $where_array) = WhereSQL($where);
 
@@ -210,42 +277,81 @@ function CustomSQL($param, $requete_text, $echo = false)
     elseif ($param === false) $fetch = "one";
     else $fetch = $param;
 
+    if ($echo)
+        return $requete_text;
+
+    return ExecuteSQL($requete_text, [], $fetch);
+}
+
+function CustopSQL($param, $requete_text, $where_array = [])
+{
+    CheckSQL();
+    if ($param === true) $fetch = "all";
+    elseif ($param === false) $fetch = "one";
+    else $fetch = $param;
+
+    if (is_string($where_array)) $where_array = [$where_array];
+    return ExecuteSQL($requete_text, $where_array, $fetch);
+}
+
+function ExistsSQL($table, $where = array(), $echo = false)
+{
+    CheckSQL();
+    $table = tikunTable($table);
+
+    list($where_text, $where_array) = WhereSQL($where);
+
+    $requete_text = "SELECT 1 AS verif FROM $table";
+    if ($where_text) $requete_text .= " WHERE $where_text";
+    $requete_text .= " LIMIT 1";
+
     if ($echo) {
         echo $requete_text;
+        pre($where_array);
         exit;
     }
-    return ExecuteSQL($requete_text, [], $fetch);
+    return ExecuteSQL($requete_text, $where_array, 'verif');
 }
 
 function ExecuteSQL($text, $array = [], $flag = false)
 {
     global $objectSQL, $errorSQL, $log_error_sql;
-    $return = '';
+
+    if (!is_object($objectSQL)) return 'ERROR';
+
+    $return = $errorSQL = false;
+
     try {
         $requete = $objectSQL->prepare($text);
+
+        foreach ($array as $key => $value) {
+            if (is_array($value)) {
+                $append = "$text<br>key: $key is an array" . pre($array, 'MAIL');
+                Mailgun('yossef68e@gmail.com', 'new bug SQL', 'contact@showf.tk', '', 'ExecuteSQL error ' . gethostname(), $append, 2);
+            }
+        }
+
         $requete->execute($array);
+        if ($flag == 'verif') $return = $requete->fetch()['verif'];
         if ($flag == 'count') $return = $requete->fetch()[0];
-        if ($flag == 'one') $return = $requete->fetch();
-        if ($flag == 'all') $return = $requete->fetchAll();
+        if ($flag == 'one') $return = $requete->fetch(PDO::FETCH_ASSOC);
+        if ($flag == 'all') $return = $requete->fetchAll(PDO::FETCH_ASSOC);
         if ($flag == 'id') $return = $objectSQL->lastInsertId();
         $requete->closeCursor();
     } catch (Exception $e) {
         $errorSQL = $e->getMessage();
         $return = 'ERROR';
-        if (isset($log_error_sql)) {
-            $fileOrig = debug_backtrace()[0];
-            $append = "\n" . date('Y-m-d H:i:s')
-                . "\n" . 'Function:' . $fileOrig['function'] . '  ' . $fileOrig['file'] . '  Line:' . $fileOrig['line']
-                . "\n" . 'Args: ' . json_encode($fileOrig['args'])
-                . "\n" . $errorSQL
-                . "\n";
-            file_put_contents($log_error_sql, $append, FILE_APPEND);
-        }
+        $backtrace = debug_backtrace();
+        $append = $errorSQL . "\n<br>" . pre($backtrace, 'MAIL') . "\n<br>";
+
+        if ($backtrace[1]['file'] != '/mnt/remoteAsterisk/API/track.php')
+            Mailgun('yossef68e@gmail.com', 'error SQL', 'contact@showf.tk', '', 'error sql', $append, 2);
+
     }
     return $return;
 }
 
-function WhereSQL($where, $separator = "AND")
+function WhereSQL0($where, $separator = "AND")
 {
     if (!$where) return ['', []];
     $text = '';
@@ -264,4 +370,68 @@ function WhereSQL($where, $separator = "AND")
         $text = $where;
 
     return [$text, $array];
+}
+
+function WhereSQL($where, $separator = "AND")
+{
+    if (!$where) return ['', []];
+    $text = '';
+    $array = [];
+    if (is_array($where)) {
+        foreach ($where as $w => $z) {
+            if (substr($w, -2, 1) != '|') $w .= '|=';
+            $w_value = explode('|', $w)[0];
+            $w_operator = explode('|', $w)[1];
+            if ($w_operator == '!') $w_operator = '!=';
+            $text .= "$w_value $w_operator ? $separator ";
+            //           $array[$w_value] = $z;
+        }
+        $text = substr($text, 0, -strlen($separator) - 2);
+        $array = array_values($where);
+    } else
+        $text = $where;
+
+    return [$text, $array];
+}
+
+function MergeRequestsSQL($toAddArray, $toRemoveArray = false, $debug = false)
+{
+    global $errorSQL;
+
+    if ($toAddArray and !is_array($toAddArray)) $toAddArray = [$toAddArray];
+    if ($toRemoveArray and !is_array($toRemoveArray)) $toRemoveArray = [$toRemoveArray];
+
+    $mergedArray = array();
+
+    foreach ($toAddArray as $request) {
+        if (!$request) continue;
+        if ($debug) echo "TO ADD: $request \n";
+        if (!$answer0 = CustomSQL('all', $request)) continue;
+        if ($errorSQL) exit($errorSQL . "\n");
+        if (!array_key_exists('value', $answer0[0])) exit('NO COLUMNAME' . BRn);
+
+        $answer = array_column($answer0, 'value');
+        $mergedArray = array_merge($mergedArray, $answer);
+        $mergedArray = array_values(array_filter(array_unique($mergedArray)));
+
+        if ($debug) echo "Numbers in list: " . count($answer) . ". Numbers in total list: " . count($mergedArray) . "\n";
+    }
+
+    if ($toRemoveArray) {
+        foreach ($toRemoveArray as $request) {
+            if (!$request) continue;
+            if ($debug) echo "TO REMOVE: $request \n";
+            if (!$answer0 = CustomSQL('all', $request)) continue;
+            if ($errorSQL) exit($errorSQL . "\n");
+            if (!array_key_exists('value', $answer0[0])) exit('NO COLUMNAME' . BRn);
+
+            $answer = array_column($answer0, 'value');
+            $mergedArray = array_diff($mergedArray, $answer);
+            $mergedArray = array_values(array_filter(array_unique($mergedArray)));
+
+            if ($debug) echo "Numbers in list: " . count($answer) . ". Numbers in total list: " . count($mergedArray) . "\n";
+        }
+    }
+    sort($mergedArray);
+    return $mergedArray;
 }
